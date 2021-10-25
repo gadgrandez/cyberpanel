@@ -10,7 +10,7 @@ class cliLogger:
         try:
             file = open(cliLogger.fileName, 'a')
             file.writelines("[" + time.strftime(
-                "%I-%M-%S-%a-%b-%Y") + "] [" + level + ":" + method + "] " + message + "\n")
+                "%m.%d.%Y_%H-%M-%S") + "] [" + level + ":" + method + "] " + message + "\n")
             file.close()
             file.close()
         except IOError:
@@ -20,9 +20,9 @@ class cliLogger:
     def readLastNFiles(numberOfLines,fileName):
         try:
 
-            lastFewLines = subprocess.check_output(["tail", "-n",str(numberOfLines),fileName])
+            lastFewLines = subprocess.check_output(["tail", "-n",str(numberOfLines),fileName]).decode("utf-8")
 
             return lastFewLines
 
-        except subprocess.CalledProcessError,msg:
+        except subprocess.CalledProcessError as msg:
             return "File was empty"

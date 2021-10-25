@@ -1,340 +1,306 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 
-from django.shortcuts import render,redirect
-from django.http import HttpResponse
-from loginSystem.models import Administrator
-from websiteFunctions.models import Websites
-import plogical.CyberCPLogFileWriter as logging
-from plogical.mysqlUtilities import mysqlUtilities
+
+from django.shortcuts import redirect, HttpResponse
 from loginSystem.views import loadLoginPage
-from models import Databases
+from .databaseManager import DatabaseManager
+from .pluginManager import pluginManager
 import json
-import shlex
-import subprocess
+from plogical.processUtilities import ProcessUtilities
+from loginSystem.models import Administrator
+from plogical.acl import ACLManager
+from databases.models import GlobalUserDB
+from plogical import randomPassword
+from cryptography.fernet import Fernet
+from plogical.mysqlUtilities import mysqlUtilities
+from plogical.CyberCPLogFileWriter import CyberCPLogFileWriter as logging
 # Create your views here.
-
 
 def loadDatabaseHome(request):
     try:
-        val = request.session['userID']
-        try:
-            return render(request, 'databases/index.html')
-        except BaseException, msg:
-            logging.CyberCPLogFileWriter.writeToFile(str(msg))
-            return HttpResponse(str(msg))
-
+        userID = request.session['userID']
+        dm = DatabaseManager()
+        return dm.loadDatabaseHome(request, userID)
     except KeyError:
         return redirect(loadLoginPage)
 
 def createDatabase(request):
     try:
-        val = request.session['userID']
-        try:
-            admin = Administrator.objects.get(pk=val)
+        result = pluginManager.preCreateDatabase(request)
+        if result != 200:
+            return result
 
-            if admin.type == 1:
-                websites = Websites.objects.all()
-                websitesName = []
+        userID = request.session['userID']
+        dm = DatabaseManager()
+        coreResult = dm.createDatabase(request, userID)
 
-                for items in websites:
-                    websitesName.append(items.domain)
-            else:
-                if admin.type == 2:
-                    websites = Websites.objects.filter(admin=admin)
-                    admins = Administrator.objects.filter(owner=admin.pk)
-                    websitesName = []
+        result = pluginManager.postCreateDatabase(request, coreResult)
+        if result != 200:
+            return result
 
-                    for items in websites:
-                        websitesName.append(items.domain)
+        return coreResult
 
-                    for items in admins:
-                        webs = Websites.objects.filter(admin=items)
-
-                        for web in webs:
-                            websitesName.append(web.domain)
-                else:
-                    websitesName = []
-                    websites = Websites.objects.filter(admin=admin)
-                    for items in websites:
-                        websitesName.append(items.domain)
-
-
-            return render(request, 'databases/createDatabase.html', {'websitesList':websitesName})
-        except BaseException, msg:
-            logging.CyberCPLogFileWriter.writeToFile(str(msg))
-            return HttpResponse(str(msg))
 
     except KeyError:
         return redirect(loadLoginPage)
 
-
 def submitDBCreation(request):
     try:
-        val = request.session['userID']
-        admin = Administrator.objects.get(pk=val)
-        try:
-            if request.method == 'POST':
+        userID = request.session['userID']
 
-                data = json.loads(request.body)
-                databaseWebsite = data['databaseWebsite']
-                dbName = data['dbName']
-                dbUsername = data['dbUsername']
-                dbPassword = data['dbPassword']
-                webUsername = data['webUserName']
+        result = pluginManager.preSubmitDBCreation(request)
+        if result != 200:
+            return result
 
-                if admin.type != 1:
-                    website = Websites.objects.get(domain=databaseWebsite)
-                    if website.admin != admin:
-                        dic = {'createDBStatus': 0, 'error_message': "Only administrator can view this page."}
-                        json_data = json.dumps(dic)
-                        return HttpResponse(json_data)
+        dm = DatabaseManager()
+        coreResult = dm.submitDBCreation(userID, json.loads(request.body))
 
-                dbName = webUsername+"_"+dbName
-                dbUsername = webUsername+"_"+dbUsername
+        result = pluginManager.postSubmitDBCreation(request, coreResult)
+        if result != 200:
+            return result
 
-                result = mysqlUtilities.submitDBCreation(dbName, dbUsername, dbPassword, databaseWebsite)
+        return coreResult
 
-                if result[0] == 1:
-                    data_ret = {'createDBStatus': 1, 'error_message': "None"}
-                    json_data = json.dumps(data_ret)
-                    return HttpResponse(json_data)
-                else:
-                    data_ret = {'createDBStatus': 0, 'error_message': result[1]}
-                    json_data = json.dumps(data_ret)
-                    return HttpResponse(json_data)
-
-        except BaseException,msg:
-            data_ret = {'createDBStatus': 0, 'error_message': str(msg)}
-            json_data = json.dumps(data_ret)
-            return HttpResponse(json_data)
-    except KeyError,msg:
-        data_ret = {'createDBStatus': 0, 'error_message': str(msg)}
-        json_data = json.dumps(data_ret)
-        return HttpResponse(json_data)
-
+    except KeyError:
+        return redirect(loadLoginPage)
 
 def deleteDatabase(request):
     try:
-        val = request.session['userID']
-        try:
-
-            admin = Administrator.objects.get(pk=val)
-
-            if admin.type == 1:
-                websites = Websites.objects.all()
-                websitesName = []
-
-                for items in websites:
-                    websitesName.append(items.domain)
-            else:
-                if admin.type == 2:
-                    websites = admin.websites_set.all()
-                    admins = Administrator.objects.filter(owner=admin.pk)
-                    websitesName = []
-
-                    for items in websites:
-                        websitesName.append(items.domain)
-
-                    for items in admins:
-                        webs = items.websites_set.all()
-
-                        for web in webs:
-                            websitesName.append(web.domain)
-                else:
-                    websitesName = []
-                    websites = Websites.objects.filter(admin=admin)
-                    for items in websites:
-                        websitesName.append(items.domain)
-
-
-            return render(request, 'databases/deleteDatabase.html', {'websitesList':websitesName})
-        except BaseException, msg:
-            logging.CyberCPLogFileWriter.writeToFile(str(msg))
-            return HttpResponse(str(msg))
-
+        userID = request.session['userID']
+        dm = DatabaseManager()
+        return dm.deleteDatabase(request, userID)
     except KeyError:
         return redirect(loadLoginPage)
 
 def fetchDatabases(request):
     try:
-        val = request.session['userID']
-        admin = Administrator.objects.get(pk=val)
-        try:
-
-            data = json.loads(request.body)
-
-            databaseWebsite = data['databaseWebsite']
-
-            if admin.type != 1:
-                website = Websites.objects.get(domain=databaseWebsite)
-                if website.admin != admin:
-                    dic = {'fetchStatus': 0, 'error_message': "Only administrator can view this page."}
-                    json_data = json.dumps(dic)
-                    return HttpResponse(json_data)
-
-            website = Websites.objects.get(domain=databaseWebsite)
-
-
-            databases = Databases.objects.filter(website=website)
-
-            json_data = "["
-            checker = 0
-
-            for items in databases:
-                dic = { 'id':items.pk,
-                        'dbName': items.dbName,
-                       'dbUser': items.dbUser,}
-
-                if checker == 0:
-                    json_data = json_data + json.dumps(dic)
-                    checker = 1
-                else:
-                    json_data = json_data + ',' + json.dumps(dic)
-
-            json_data = json_data + ']'
-
-            final_json = json.dumps({'fetchStatus': 1, 'error_message': "None", "data": json_data})
-
-            return HttpResponse(final_json)
-        except BaseException, msg:
-            logging.CyberCPLogFileWriter.writeToFile(str(msg))
-            final_json = json.dumps({'fetchStatus': 0, 'error_message': str(msg)})
-            return HttpResponse(final_json)
-
+        userID = request.session['userID']
+        dm = DatabaseManager()
+        return dm.fetchDatabases(userID, json.loads(request.body))
     except KeyError:
-        logging.CyberCPLogFileWriter.writeToFile(str(msg))
-        final_json = json.dumps({'fetchStatus': 0, 'error_message': "Not logged in."})
-        return HttpResponse(final_json)
-
+        return redirect(loadLoginPage)
 
 def submitDatabaseDeletion(request):
     try:
-        val = request.session['userID']
-        admin = Administrator.objects.get(pk=val)
-        try:
-            if request.method == 'POST':
+        userID = request.session['userID']
+        result = pluginManager.preSubmitDatabaseDeletion(request)
+        if result != 200:
+            return result
+
+        dm = DatabaseManager()
+        coreResult = dm.submitDatabaseDeletion(userID, json.loads(request.body))
+
+        result = pluginManager.postSubmitDatabaseDeletion(request, coreResult)
+        if result != 200:
+            return result
+
+        return coreResult
+    except KeyError:
+        return redirect(loadLoginPage)
+
+def listDBs(request):
+    try:
+        userID = request.session['userID']
+        dm = DatabaseManager()
+        return dm.listDBs(request, userID)
+    except KeyError:
+        return redirect(loadLoginPage)
+
+def changePassword(request):
+    try:
+        userID = request.session['userID']
+
+        result = pluginManager.preChangePassword(request)
+        if result != 200:
+            return result
+
+        dm = DatabaseManager()
+        coreResult = dm.changePassword(userID, json.loads(request.body))
+
+        result = pluginManager.postChangePassword(request, coreResult)
+        if result != 200:
+            return result
+
+        return coreResult
+    except KeyError:
+        return redirect(loadLoginPage)
+
+def remoteAccess(request):
+    try:
+        userID = request.session['userID']
+
+        dm = DatabaseManager()
+        coreResult = dm.remoteAccess(userID, json.loads(request.body))
+
+        return coreResult
+    except KeyError:
+        return redirect(loadLoginPage)
+
+def allowRemoteIP(request):
+    try:
+        userID = request.session['userID']
+
+        dm = DatabaseManager()
+        coreResult = dm.allowRemoteIP(userID, json.loads(request.body))
+
+        return coreResult
+    except KeyError:
+        return redirect(loadLoginPage)
+
+def phpMyAdmin(request):
+    try:
+        userID = request.session['userID']
+        dm = DatabaseManager()
+        return dm.phpMyAdmin(request, userID)
+    except KeyError:
+        return redirect(loadLoginPage)
+
+def generateAccess(request):
+    try:
 
 
-                data = json.loads(request.body)
-                dbName = data['dbName']
+        userID = request.session['userID']
+        admin = Administrator.objects.get(id = userID)
+        currentACL = ACLManager.loadedACL(userID)
 
-                if admin.type != 1:
-                    db = Databases.objects.get(dbName=dbName)
-                    if db.website.admin != admin:
-                        dic = {'deleteStatus': 0, 'error_message': "Only administrator can view this page."}
-                        json_data = json.dumps(dic)
-                        return HttpResponse(json_data)
+        ## if user ACL is admin login as root
 
-                result = mysqlUtilities.submitDBDeletion(dbName)
+        command = 'chmod 640 /usr/local/lscp/cyberpanel/logs/access.log'
+        ProcessUtilities.executioner(command)
 
-                if  result[0] == 1:
-                    data_ret = {'deleteStatus': 1, 'error_message': "None"}
-                    json_data = json.dumps(data_ret)
-                    return HttpResponse(json_data)
-                else:
-                    data_ret = {'deleteStatus': 0, 'error_message': result[1]}
-                    json_data = json.dumps(data_ret)
-                    return HttpResponse(json_data)
+        if currentACL['admin'] == 1:
 
+            try:
+                GlobalUserDB.objects.get(username=admin.userName).delete()
+            except:
+                try:
+                    gbobs = GlobalUserDB.objects.filter(username=admin.userName)
+                    for gbobs in gbobs:
+                        gbobs.delete()
+                except:
+                    pass
 
-        except BaseException,msg:
-            data_ret = {'deleteStatus': 0, 'error_message': str(msg)}
+            password = randomPassword.generate_pass()
+            token = randomPassword.generate_pass()
+            GlobalUserDB(username=admin.userName, password=password,token=token).save()
+
+            data_ret = {'status': 1, 'token': token, 'username': admin.userName}
             json_data = json.dumps(data_ret)
             return HttpResponse(json_data)
-    except KeyError,msg:
-        data_ret = {'deleteStatus': 0, 'error_message': str(msg)}
+
+
+        keySavePath = '/home/cyberpanel/phpmyadmin_%s' % (admin.userName)
+        try:
+            GlobalUserDB.objects.get(username=admin.userName).delete()
+        except:
+            pass
+
+        command = 'rm -f %s' % (keySavePath)
+        ProcessUtilities.executioner(command)
+
+        ## Create and save new key
+
+        key = Fernet.generate_key()
+
+        writeToFile = open(keySavePath, 'w')
+        writeToFile.write(key.decode())
+        writeToFile.close()
+
+        command = 'chown root:root %s' % (keySavePath)
+        ProcessUtilities.executioner(command)
+
+        command = 'chmod 600 %s' % (keySavePath)
+        ProcessUtilities.executioner(command)
+
+        ##
+
+        password = randomPassword.generate_pass()
+        token = randomPassword.generate_pass()
+        f = Fernet(key)
+        GlobalUserDB(username=admin.userName, password=f.encrypt(password.encode('utf-8')).decode(),
+                     token=token).save()
+
+        sites = ACLManager.findWebsiteObjects(currentACL, userID)
+        mysqlUtilities.addUserToDB(None, admin.userName, password, 1)
+
+        for site in sites:
+            for db in site.databases_set.all():
+                mysqlUtilities.addUserToDB(db.dbName, admin.userName, password, 0)
+
+        data_ret = {'status': 1, 'token': token, 'username': admin.userName}
         json_data = json.dumps(data_ret)
         return HttpResponse(json_data)
 
 
-def listDBs(request):
+    except BaseException as msg:
+        logging.writeToFile(str(msg))
+        data_ret = {'status': 0, 'createDBStatus': 0, 'error_message': str(msg)}
+        json_data = json.dumps(data_ret)
+        return HttpResponse(json_data)
+
+def fetchDetailsPHPMYAdmin(request):
     try:
-        val = request.session['userID']
-        try:
-            admin = Administrator.objects.get(pk=val)
-
-            if admin.type == 1:
-                websites = Websites.objects.all()
-                websitesName = []
-
-                for items in websites:
-                    websitesName.append(items.domain)
-            else:
-                if admin.type == 2:
-                    websites = admin.websites_set.all()
-                    admins = Administrator.objects.filter(owner=admin.pk)
-                    websitesName = []
-
-                    for items in websites:
-                        websitesName.append(items.domain)
-
-                    for items in admins:
-                        webs = items.websites_set.all()
-
-                        for web in webs:
-                            websitesName.append(web.domain)
-                else:
-                    websitesName = []
-                    websites = Websites.objects.filter(admin=admin)
-                    for items in websites:
-                        websitesName.append(items.domain)
-
-            return render(request, 'databases/listDataBases.html', {'websiteList':websitesName})
-        except BaseException, msg:
-            logging.CyberCPLogFileWriter.writeToFile(str(msg))
-            return HttpResponse(str(msg))
-
-    except KeyError:
-        return redirect(loadLoginPage)
 
 
-def changePassword(request):
-    try:
-        val = request.session['userID']
-        admin = Administrator.objects.get(pk=val)
-        try:
-            if request.method == 'POST':
+        userID = request.session['userID']
+        admin = Administrator.objects.get(id = userID)
+        currentACL = ACLManager.loadedACL(userID)
 
-                data = json.loads(request.body)
-                userName = data['dbUserName']
-                dbPassword = data['dbPassword']
+        token = request.GET.get('token')
+        username = request.GET.get('username')
 
-                if admin.type != 1:
-                    db = Databases.objects.get(dbName=userName)
-                    if db.website.admin != admin:
-                        dic = {'changePasswordStatus': 0, 'error_message': "Only administrator can view this page."}
-                        json_data = json.dumps(dic)
-                        return HttpResponse(json_data)
 
+        if username != admin.userName:
+            return redirect(loadLoginPage)
+
+        ## Key generation
+
+        gdb = GlobalUserDB.objects.get(username=admin.userName)
+
+        if gdb.token == token:
+
+            if currentACL['admin'] == 1:
                 passFile = "/etc/cyberpanel/mysqlPassword"
 
-                f = open(passFile)
-                data = f.read()
-                password = data.split('\n', 1)[0]
+                try:
+                    jsonData = json.loads(open(passFile, 'r').read())
+
+                    mysqluser = jsonData['mysqluser']
+                    password = jsonData['mysqlpassword']
+
+                    returnURL = '/phpmyadmin/phpmyadminsignin.php?username=%s&password=%s' % (
+                    mysqluser, password)
+                    return redirect(returnURL)
+
+                except BaseException:
+
+                    f = open(passFile)
+                    data = f.read()
+                    password = data.split('\n', 1)[0]
+                    password = password.strip('\n').strip('\r')
+
+                    returnURL = '/phpmyadmin/phpmyadminsignin.php?username=%s&password=%s' % (
+                        'root', password)
+                    return redirect(returnURL)
+
+            keySavePath = '/home/cyberpanel/phpmyadmin_%s' % (admin.userName)
+            key = ProcessUtilities.outputExecutioner('cat %s' % (keySavePath)).strip('\n').encode()
+            f = Fernet(key)
+            password = f.decrypt(gdb.password.encode('utf-8'))
+
+            sites = ACLManager.findWebsiteObjects(currentACL, userID)
+
+            for site in sites:
+                for db in site.databases_set.all():
+                    mysqlUtilities.addUserToDB(db.dbName, admin.userName, password.decode(), 0)
+
+            returnURL = '/phpmyadmin/phpmyadminsignin.php?username=%s&password=%s' % (admin.userName, password.decode())
+            return redirect(returnURL)
+        else:
+            return redirect(loadLoginPage)
 
 
-                passwordCMD = "use mysql;SET PASSWORD FOR '" + userName + "'@'localhost' = PASSWORD('" + dbPassword + "');FLUSH PRIVILEGES;"
-
-                command = 'sudo mysql -u root -p' + password + ' -e "' + passwordCMD + '"'
-                cmd = shlex.split(command)
-                res = subprocess.call(cmd)
-
-                if res == 1:
-                    data_ret = {'changePasswordStatus': 0, 'error_message': "Please see CyberPanel main log file."}
-                    json_data = json.dumps(data_ret)
-                    return HttpResponse(json_data)
-
-
-                data_ret = {'changePasswordStatus': 1, 'error_message': "None"}
-                json_data = json.dumps(data_ret)
-                return HttpResponse(json_data)
-
-        except BaseException,msg:
-            data_ret = {'changePasswordStatus': 0, 'error_message': str(msg)}
-            json_data = json.dumps(data_ret)
-            return HttpResponse(json_data)
-    except KeyError,msg:
-        data_ret = {'changePasswordStatus': 0, 'error_message': str(msg)}
+    except BaseException as msg:
+        data_ret = {'status': 0, 'createDBStatus': 0, 'error_message': str(msg)}
         json_data = json.dumps(data_ret)
         return HttpResponse(json_data)

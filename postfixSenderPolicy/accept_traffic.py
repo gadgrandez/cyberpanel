@@ -1,4 +1,4 @@
-#!/usr/local/CyberCP/bin/python2
+#!/usr/local/CyberCP/bin/python
 import os,sys
 sys.path.append('/usr/local/CyberCP')
 import django
@@ -6,11 +6,11 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "CyberCP.settings")
 django.setup()
 import threading as multi
 from plogical.CyberCPLogFileWriter import CyberCPLogFileWriter as logging
-from policyConstraint import policyConstraints
+from .policyConstraint import policyConstraints
 from emailPremium.models import DomainLimits, EmailLogs
 from mailServer.models import Domains, EUsers
 import time
-from cacheManager import cacheManager
+from .cacheManager import cacheManager
 
 limitThreads = multi.BoundedSemaphore(10)
 
@@ -23,7 +23,7 @@ class HandleRequest(multi.Thread):
     def __del__(self):
         try:
             self.connection.close()
-        except BaseException, msg:
+        except BaseException as msg:
             logging.writeToFile(str(msg) + ' [HandleRequest.__del__]')
 
     def run(self):
@@ -62,16 +62,14 @@ class HandleRequest(multi.Thread):
                     self.connection.close()
                     break
 
-        except BaseException, msg:
+        except BaseException as msg:
             logging.writeToFile( str(msg) + ' [HandleRequest.run]')
         finally:
             limitThreads.release()
 
     def manageRequest(self, completeData):
         try:
-
             completeData = completeData.split('\n')
-
             for items in completeData:
                 tempData = items.split('=')
                 if tempData[0] == 'sasl_username':
@@ -81,6 +79,9 @@ class HandleRequest(multi.Thread):
                     emailAddress = tempData[1]
                     domainName = emailAddress.split('@')[1]
                 elif tempData[0] == 'recipient':
+                    if len(tempData[1]) == 0:
+                        self.connection.sendall('action=dunno\n\n')
+                        return
                     destination = tempData[1]
 
 
@@ -116,7 +117,7 @@ class HandleRequest(multi.Thread):
                 else:
                     email = EUsers.objects.get(email=emailAddress)
                     if emailObj.logStatus == 1:
-                        logEntry = EmailLogs(email=email, destination=destination, timeStamp=time.strftime("%I-%M-%S-%a-%b-%Y"))
+                        logEntry = EmailLogs(email=email, destination=destination, timeStamp=time.strftime("%m.%d.%Y_%H-%M-%S"))
                         logEntry.save()
                     emailObj.monthlyUsed = emailObj.monthlyUsed + 1
                     emailObj.hourlyUsed = emailObj.hourlyUsed + 1
@@ -126,7 +127,7 @@ class HandleRequest(multi.Thread):
                 email = EUsers.objects.get(email=emailAddress)
                 if emailObj.logStatus == 1:
                     logEntry = EmailLogs(email=email, destination=destination,
-                                         timeStamp=time.strftime("%I-%M-%S-%a-%b-%Y"))
+                                         timeStamp=time.strftime("%m.%d.%Y_%H-%M-%S"))
                     logEntry.save()
 
                 emailObj.monthlyUsed = emailObj.monthlyUsed + 1
@@ -135,6 +136,6 @@ class HandleRequest(multi.Thread):
                 self.connection.sendall('action=dunno\n\n')
 
 
-        except BaseException, msg:
+        except BaseException as msg:
             logging.writeToFile(str(msg) + " [HandleRequest.manageRequest]")
             self.connection.sendall('action=defer_if_permit Service temporarily unavailable\n\n')

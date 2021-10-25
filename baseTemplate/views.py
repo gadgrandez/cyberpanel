@@ -1,127 +1,114 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 from django.shortcuts import render,redirect
 from django.http import HttpResponse
 from plogical.getSystemInformation import SystemInformation
-from loginSystem.models import Administrator
 import json
 from loginSystem.views import loadLoginPage
-import re
 from .models import version
 import requests
 import subprocess
 import shlex
 import os
 import plogical.CyberCPLogFileWriter as logging
-from plogical.virtualHostUtilities import virtualHostUtilities
+from plogical.acl import ACLManager
+from manageServices.models import PDNSStatus
+from django.views.decorators.csrf import ensure_csrf_cookie
+from plogical.processUtilities import ProcessUtilities
+from plogical.httpProc import httpProc
 # Create your views here.
 
+VERSION = '2.1'
+BUILD = 2
 
+@ensure_csrf_cookie
 def renderBase(request):
-    try:
-        val = request.session['userID']
-
-        admin = Administrator.objects.get(pk=val)
-
-        cpuRamDisk = SystemInformation.cpuRamDisk()
-
-        finaData = {"type": admin.type,'ramUsage':cpuRamDisk['ramUsage'],'cpuUsage':cpuRamDisk['cpuUsage'],'diskUsage':cpuRamDisk['diskUsage'] }
-
-        return render(request, 'baseTemplate/homePage.html', finaData)
-    except KeyError:
-        return redirect(loadLoginPage)
-
+    template = 'baseTemplate/homePage.html'
+    cpuRamDisk = SystemInformation.cpuRamDisk()
+    finaData = {'ramUsage': cpuRamDisk['ramUsage'], 'cpuUsage': cpuRamDisk['cpuUsage'],
+                'diskUsage': cpuRamDisk['diskUsage']}
+    proc = httpProc(request, template, finaData)
+    return proc.render()
 
 def getAdminStatus(request):
     try:
-        admin = request.session['userID']
+        val = request.session['userID']
+        currentACL = ACLManager.loadedACL(val)
 
-        administrator = Administrator.objects.get(pk=admin)
-
-        if administrator.type == 1:
-            admin_type = "Administrator"
-        elif administrator.type == 2:
-            admin_type = "Reseller"
+        if os.path.exists('/home/cyberpanel/postfix'):
+            currentACL['emailAsWhole'] = 1
         else:
-            admin_type = "Normal User"
+            currentACL['emailAsWhole'] = 0
 
-        # read server IP
+        if os.path.exists('/home/cyberpanel/pureftpd'):
+            currentACL['ftpAsWhole'] = 1
+        else:
+            currentACL['ftpAsWhole'] = 0
 
         try:
-            ipFile = "/etc/cyberpanel/machineIP"
-            f = open(ipFile)
-            ipData = f.read()
-            serverIPAddress = ipData.split('\n', 1)[0]
-        except BaseException,msg:
-            logging.CyberCPLogFileWriter.writeToFile("Failed to read machine IP, error:" +str(msg))
-            serverIPAddress = "192.168.100.1"
+            pdns = PDNSStatus.objects.get(pk=1)
+            currentACL['dnsAsWhole'] = pdns.serverStatus
+        except:
+            if ProcessUtilities.decideDistro() == ProcessUtilities.ubuntu or ProcessUtilities.decideDistro() == ProcessUtilities.ubuntu20:
+                pdnsPath = '/etc/powerdns'
+            else:
+                pdnsPath = '/etc/pdns'
 
-        adminName = administrator.firstName + " " + administrator.lastName[:3]
+            if os.path.exists(pdnsPath):
+                PDNSStatus(serverStatus=1).save()
+                currentACL['dnsAsWhole'] = 1
+            else:
+                currentACL['dnsAsWhole'] = 0
 
-        adminData = {"admin_type":admin_type,"user_name":adminName,"serverIPAddress":serverIPAddress}
-
-        json_data = json.dumps(adminData)
-
+        json_data = json.dumps(currentACL)
         return HttpResponse(json_data)
     except KeyError:
         return HttpResponse("Can not get admin Status")
 
-
 def getSystemStatus(request):
     try:
-
+        val = request.session['userID']
+        currentACL = ACLManager.loadedACL(val)
         HTTPData = SystemInformation.getSystemInformation()
         json_data = json.dumps(HTTPData)
         return HttpResponse(json_data)
-
     except KeyError:
         return HttpResponse("Can not get admin Status")
 
 def getLoadAverage(request):
-    loadAverage = SystemInformation.cpuLoad()
-    loadAverage = list(loadAverage)
-    one = loadAverage[0]
-    two = loadAverage[1]
-    three = loadAverage[2]
-
-    loadAvg = {"one": one, "two": two,"three": three}
-
-    json_data = json.dumps(loadAvg)
-
-    return HttpResponse(json_data)
-
-
-def versionManagment(request):
     try:
         val = request.session['userID']
-
-        admin = Administrator.objects.get(pk=val)
-
-        if admin.type == 1:
-            vers = version.objects.get(pk=1)
-
-            getVersion = requests.get('https://cyberpanel.net/version.txt')
-
-            latest = getVersion.json()
-
-            latestVersion = latest['version']
-            latestBuild = latest['build']
-
-            if vers.currentVersion == latestVersion and vers.build == latestBuild:
-                active = 0
-            else:
-                active = 0
-
-            return render(request, 'baseTemplate/versionManagment.html', {'build':vers.build,
-                'currentVersion':vers.currentVersion,
-                'latestVersion':latestVersion,'latestBuild':latestBuild,"active":active})
-        else:
-            return HttpResponse("You need to be admiministrator to view this page.")
+        currentACL = ACLManager.loadedACL(val)
+        loadAverage = SystemInformation.cpuLoad()
+        loadAverage = list(loadAverage)
+        one = loadAverage[0]
+        two = loadAverage[1]
+        three = loadAverage[2]
+        loadAvg = {"one": one, "two": two,"three": three}
+        json_data = json.dumps(loadAvg)
+        return HttpResponse(json_data)
     except KeyError:
-        return redirect(loadLoginPage)
+        return HttpResponse("Not allowed.")
 
+@ensure_csrf_cookie
+def versionManagment(request):
+    ## Get latest version
 
+    getVersion = requests.get('https://cyberpanel.net/version.txt')
+    latest = getVersion.json()
+    latestVersion = latest['version']
+    latestBuild = latest['build']
+
+    ## Get local version
+
+    currentVersion = VERSION
+    currentBuild = str(BUILD)
+
+    template = 'baseTemplate/versionManagment.html'
+    finalData = {'build': currentBuild, 'currentVersion': currentVersion, 'latestVersion': latestVersion,
+                 'latestBuild': latestBuild}
+
+    proc = httpProc(request, template, finalData, 'versionManagement')
+    return proc.render()
 
 def upgrade(request):
     try:
@@ -155,8 +142,6 @@ def upgrade(request):
         adminData = {"upgrade": 1,"error_message":"Please login or refresh this page."}
         json_data = json.dumps(adminData)
         return HttpResponse(json_data)
-
-
 
 def upgradeStatus(request):
     try:
@@ -197,7 +182,7 @@ def upgradeStatus(request):
                     return HttpResponse(final_json)
 
 
-        except BaseException,msg:
+        except BaseException as msg:
             final_dic = {'upgradeStatus': 0, 'error_message': str(msg)}
             final_json = json.dumps(final_dic)
             return HttpResponse(final_json)
@@ -205,7 +190,6 @@ def upgradeStatus(request):
         final_dic = {'upgradeStatus': 0, 'error_message': "Not Logged In, please refresh the page or login again."}
         final_json = json.dumps(final_dic)
         return HttpResponse(final_json)
-
 
 def upgradeVersion(request):
     try:
@@ -216,6 +200,31 @@ def upgradeVersion(request):
         vers.build = latest['build']
         vers.save()
         return HttpResponse("Version upgrade OK.")
-    except BaseException, msg:
+    except BaseException as msg:
         logging.CyberCPLogFileWriter.writeToFile(str(msg))
         return HttpResponse(str(msg))
+
+@ensure_csrf_cookie
+def design(request):
+    ### Load Custom CSS
+    try:
+        from baseTemplate.models import CyberPanelCosmetic
+        cosmetic = CyberPanelCosmetic.objects.get(pk=1)
+    except:
+        from baseTemplate.models import CyberPanelCosmetic
+        cosmetic = CyberPanelCosmetic()
+        cosmetic.save()
+
+    finalData = {}
+
+    if request.method == 'POST':
+        MainDashboardCSS = request.POST.get('MainDashboardCSS', '')
+        cosmetic.MainDashboardCSS = MainDashboardCSS
+        cosmetic.save()
+        finalData['saved'] = 1
+
+    template = 'baseTemplate/design.html'
+    finalData['cosmetic'] = cosmetic
+
+    proc = httpProc(request, template, finalData, 'versionManagement')
+    return proc.render()

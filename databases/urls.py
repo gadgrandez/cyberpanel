@@ -1,5 +1,5 @@
 from django.conf.urls import url
-import views
+from . import views
 
 urlpatterns = [
     url(r'^$', views.loadDatabaseHome, name='loadDatabaseHome'),
@@ -13,5 +13,10 @@ urlpatterns = [
 
     url(r'^listDBs', views.listDBs, name='listDBs'),
 
-    url(r'^changePassword', views.changePassword, name='changePassword'),
+    url(r'^changePassword$', views.changePassword, name='changePassword'),
+    url(r'^remoteAccess$', views.remoteAccess, name='remoteAccess'),
+    url(r'^allowRemoteIP$', views.allowRemoteIP, name='allowRemoteIP'),
+    url(r'^phpMyAdmin$', views.phpMyAdmin, name='phpMyAdmin'),
+    url(r'^generateAccess$', views.generateAccess, name='generateAccess'),
+    url(r'^fetchDetailsPHPMYAdmin$', views.fetchDetailsPHPMYAdmin, name='fetchDetailsPHPMYAdmin'),
 ]

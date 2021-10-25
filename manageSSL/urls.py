@@ -1,9 +1,8 @@
 from django.conf.urls import url
-import views
+from . import views
 
 urlpatterns = [
     url(r'^$', views.loadSSLHome, name='loadSSLHome'),
-
 
     url(r'^manageSSL', views.manageSSL, name='manageSSL'),
     url(r'^issueSSL', views.issueSSL, name='issueSSL'),

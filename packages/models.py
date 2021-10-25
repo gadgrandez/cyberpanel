@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+
 from loginSystem.models import Administrator
 
 from django.db import models
@@ -15,3 +15,5 @@ class Package(models.Model):
     dataBases = models.IntegerField(default=0)
     ftpAccounts = models.IntegerField(default=0)
     allowedDomains = models.IntegerField(default=0)
+    allowFullDomain = models.IntegerField(default=1)
+    enforceDiskLimits = models.IntegerField(default=0)

@@ -1,9 +1,10 @@
 import argparse
+import re
 
 class cliParser:
 
     def prepareArguments(self):
-        ## Website creation arguemtns
+        ## Website creation Arguments
 
         parser = argparse.ArgumentParser(description='CyberPanel Command Line Interface!')
         parser.add_argument('function', help='Specific a operation to perform!')
@@ -21,8 +22,9 @@ class cliParser:
         parser.add_argument('--dkim', help='DKIM Signing')
         parser.add_argument('--openBasedir', help='To enable or disable open_basedir protection for domain.')
         parser.add_argument('--fileName', help='Complete path to a file that needs to be restored.')
+        parser.add_argument('--backupPath', help='Backup path to use when generating a backup.')
 
-        ## Package arguments.
+        ## Package Arguments.
 
         parser.add_argument('--packageName', help='Package name.')
         parser.add_argument('--diskSpace', help='Package disk space in MBs')
@@ -49,10 +51,23 @@ class cliParser:
         parser.add_argument('--dbPassword', help='Database password.')
         parser.add_argument('--databaseWebsite', help='Database website.')
 
-        ## Email arguments
+        ## Email Arguments
         parser.add_argument('--userName', help='Email Username.')
         parser.add_argument('--password', help='Email password.')
 
+        ### Additional Arguments for user manager
 
+        parser.add_argument('--firstName', help='First name while creating user.')
+        parser.add_argument('--lastName', help='First name while creating user.')
+        parser.add_argument('--websitesLimit', help='Website limit while creating user.')
+        parser.add_argument('--selectedACL', help='Select ACL while creating user.')
+        parser.add_argument('--securityLevel', help='Set security level while creating user.')
+        parser.add_argument('--state', help='State value used in user suspension.')
+
+
+        ### WP Install
+
+        parser.add_argument('--siteTitle', help='Site Title for application installers.')
+        parser.add_argument('--path', help='Path for application installers.')
 
         return parser.parse_args()

@@ -1,11 +1,19 @@
 from django.conf.urls import url
-import views
+from . import views
 
 urlpatterns = [
     url(r'^$', views.loadBackupHome, name='loadBackupHome'),
     url(r'^getCurrentBackups', views.getCurrentBackups, name='getCurrentBackups'),
     url(r'^backupSite', views.backupSite, name='backupSite'),
     url(r'^restoreSite', views.restoreSite, name='restoreSite'),
+    url(r'^gDrive$', views.gDrive, name='gDrive'),
+    url(r'^gDriveSetup$', views.gDriveSetup, name='gDriveSetup'),
+    url(r'^fetchgDriveSites$', views.fetchgDriveSites, name='fetchgDriveSites'),
+    url(r'^addSitegDrive$', views.addSitegDrive, name='addSitegDrive'),
+    url(r'^deleteAccountgDrive$', views.deleteAccountgDrive, name='deleteAccountgDrive'),
+    url(r'^changeAccountFrequencygDrive$', views.changeAccountFrequencygDrive, name='changeAccountFrequencygDrive'),
+    url(r'^deleteSitegDrive$', views.deleteSitegDrive, name='deleteSitegDrive'),
+    url(r'^fetchDriveLogs$', views.fetchDriveLogs, name='fetchDriveLogs'),
 
 
     url(r'^submitBackupCreation', views.submitBackupCreation, name='submitBackupCreation'),
@@ -46,7 +54,16 @@ urlpatterns = [
 
     url(r'^cancelRemoteBackup', views.cancelRemoteBackup, name='cancelRemoteBackup'),
 
+    url(r'^localInitiate$', views.localInitiate, name='localInitiate'),
 
-
+    url(r'^backupLogs$', views.backupLogs, name='backupLogs'),
+    url(r'^fetchLogs$', views.fetchLogs, name='fetchLogs'),
+    url(r'^fetchgNormalSites$', views.fetchgNormalSites, name='fetchgNormalSites'),
+    url(r'^fetchNormalJobs$', views.fetchNormalJobs, name='fetchNormalJobs'),
+    url(r'^addSiteNormal$', views.addSiteNormal, name='addSiteNormal'),
+    url(r'^deleteSiteNormal$', views.deleteSiteNormal, name='deleteSiteNormal'),
+    url(r'^changeAccountFrequencyNormal$', views.changeAccountFrequencyNormal, name='changeAccountFrequencyNormal'),
+    url(r'^deleteAccountNormal$', views.deleteAccountNormal, name='deleteAccountNormal'),
+    url(r'^fetchNormalLogs$', views.fetchNormalLogs, name='fetchNormalLogs'),
 
 ]

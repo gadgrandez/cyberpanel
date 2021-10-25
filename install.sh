@@ -1,25 +1,36 @@
-#!/bin/bash
-yum autoremove epel-release -y
-rm -f /etc/yum.repos.d/epel.repo
-rm -f /etc/yum.repos.d/epel.repo.rpmsave
-yum install epel-release -y
-#some provider's centos7 template come with incorrect or misconfigured epel.repo
-if systemctl is-active named | grep -q 'active'; then
-  systemctl stop named
-  systemctl disable named
-  echo "Disabling named to aviod powerdns conflicts..."
-  else
-  echo "named is not installed or active, to next step..."
+#!/bin/sh
+
+OUTPUT=$(cat /etc/*release)
+if  echo $OUTPUT | grep -q "CentOS Linux 7" ; then
+        echo "Checking and installing curl and wget"
+yum install curl wget -y 1> /dev/null
+yum update curl wget ca-certificates -y 1> /dev/null
+                SERVER_OS="CentOS"
+elif echo $OUTPUT | grep -q "CentOS Linux 8" ; then
+        echo -e "\nDetecting Centos 8...\n"
+        SERVER_OS="CentOS8"
+yum install curl wget -y 1> /dev/null
+yum update curl wget ca-certificates -y 1> /dev/null
+elif echo $OUTPUT | grep -q "CloudLinux 7" ; then
+        echo "Checking and installing curl and wget"
+yum install curl wget -y 1> /dev/null
+yum update curl wget ca-certificates -y 1> /dev/null
+                SERVER_OS="CloudLinux"
+elif echo $OUTPUT | grep -q "Ubuntu 18.04" ; then
+apt install -y -qq wget curl
+                SERVER_OS="Ubuntu"
+elif echo $OUTPUT | grep -q "Ubuntu 20.04" ; then
+apt install -y -qq wget curl
+                SERVER_OS="Ubuntu"
+else
+
+                echo -e "\nUnable to detect your OS...\n"
+                echo -e "\nCyberPanel is supported on Ubuntu 18.04, CentOS 7.x and CloudLinux 7.x...\n"
+                exit 1
 fi
-# above if will check if server has named.service running that occupies port 53 which makes powerdns failed to start
-yum clean all
-yum update -y
-yum install wget which curl -y
-setenforce 0
-sed -i 's/SELINUX=enforcing/SELINUX=permissive/g' /etc/selinux/config
-wget https://cyberpanel.net/install.tar.gz
-tar xzvf install.tar.gz
-cd install
-chmod +x install.py
-server_ip="$(wget -qO- http://whatismyip.akamai.com/)"
-python install.py $server_ip
+
+rm -f cyberpanel.sh
+rm -f install.tar.gz
+curl --silent -o cyberpanel.sh "https://cyberpanel.sh/?dl&$SERVER_OS" 2>/dev/null
+chmod +x cyberpanel.sh
+./cyberpanel.sh $@

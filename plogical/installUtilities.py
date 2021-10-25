@@ -1,11 +1,11 @@
 import subprocess
 import sys
-import CyberCPLogFileWriter as logging
+from plogical import CyberCPLogFileWriter as logging
 import shutil
 import pexpect
 import os
-import thread
 import shlex
+from plogical.processUtilities import ProcessUtilities
 
 class installUtilities:
 
@@ -29,10 +29,10 @@ class installUtilities:
                 print("###############################################")
                 print("          EPEL Repo Added                      ")
                 print("###############################################")
-        except OSError,msg:
+        except OSError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [enableEPELRepo]")
             return 0
-        except ValueError,msg:
+        except ValueError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [enableEPELRepo]")
             return 0
 
@@ -57,10 +57,10 @@ class installUtilities:
                 print("          Litespeed Repo Added                 ")
                 print("###############################################")
 
-        except OSError,msg:
+        except OSError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [addLiteSpeedRepo]")
             return 0
-        except ValueError,msg:
+        except ValueError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [addLiteSpeedRepo]")
             return 0
 
@@ -91,10 +91,10 @@ class installUtilities:
                 print("          Litespeed Installed                  ")
                 print("###############################################")
 
-        except OSError, msg:
+        except OSError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [installLiteSpeed]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [installLiteSpeed]")
             return 0
 
@@ -123,10 +123,10 @@ class installUtilities:
                 print("          Litespeed Started                    ")
                 print("###############################################")
 
-        except OSError, msg:
+        except OSError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [startLiteSpeed]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [startLiteSpeed]")
             return 0
 
@@ -137,34 +137,68 @@ class installUtilities:
     def reStartLiteSpeed():
         try:
 
-            FNULL = open(os.devnull, 'w')
+            if ProcessUtilities.decideServer() == ProcessUtilities.OLS:
+                command = "systemctl restart lsws"
+            else:
+                command = "/usr/local/lsws/bin/lswsctrl restart"
 
-            command = "sudo systemctl restart lsws"
+            ProcessUtilities.normalExecutioner(command)
 
-            cmd = shlex.split(command)
-
-            res = subprocess.call(cmd, stdout=FNULL, stderr=subprocess.STDOUT)
-
-
-        except OSError, msg:
+        except OSError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [reStartLiteSpeed]")
             return 0
-        except ValueError, msg:
+        except BaseException as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [reStartLiteSpeed]")
             return 0
         return 1
+
+    @staticmethod
+    def reStartLiteSpeedSocket():
+        try:
+
+            if ProcessUtilities.decideServer() == ProcessUtilities.OLS:
+                command = "sudo systemctl restart lsws"
+            else:
+                command = "sudo /usr/local/lsws/bin/lswsctrl restart"
+
+            return ProcessUtilities.executioner(command)
+
+        except OSError as msg:
+            logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [reStartLiteSpeed]")
+            return 0
+        except ValueError as msg:
+            logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [reStartLiteSpeed]")
+            return 0
+
+    @staticmethod
+    def stopLiteSpeedSocket():
+        try:
+
+            if ProcessUtilities.decideServer() == ProcessUtilities.OLS:
+                command = "sudo systemctl stop lsws"
+            else:
+                command = "sudo /usr/local/lsws/bin/lswsctrl stop"
+
+            return ProcessUtilities.executioner(command)
+
+        except OSError as msg:
+            logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [reStartLiteSpeed]")
+            return 0
+        except ValueError as msg:
+            logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [reStartLiteSpeed]")
+            return 0
 
 
     @staticmethod
     def reStartOpenLiteSpeed(restart,orestart):
         try:
 
-            FNULL = open(os.devnull, 'w')
-
-            command = "sudo systemctl restart lsws"
+            if ProcessUtilities.decideServer() == ProcessUtilities.OLS:
+                command = "sudo systemctl restart lsws"
+            else:
+                command = "sudo /usr/local/lsws/bin/lswsctrl restart"
 
             cmd = shlex.split(command)
-
             res = subprocess.call(cmd)
 
             if res == 1:
@@ -177,11 +211,10 @@ class installUtilities:
                 print("          Litespeed Re-Started                 ")
                 print("###############################################")
 
-
-        except OSError, msg:
+        except OSError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [reStartOpenLiteSpeed]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [reStartOpenLiteSpeed]")
             return 0
         return 1
@@ -200,7 +233,7 @@ class installUtilities:
 
             writeDataToFile.close()
 
-        except IOError, msg:
+        except IOError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [changePortTo80]")
             return 0
 
@@ -234,13 +267,13 @@ class installUtilities:
 
 
 
-        except OSError, msg:
+        except OSError as msg:
 
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [installAllPHPVersion]")
 
             return 0
 
-        except ValueError, msg:
+        except ValueError as msg:
 
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [installAllPHPVersion]")
 
@@ -273,13 +306,11 @@ class installUtilities:
 
             writeDataToFile.close()
 
-        except IOError, msg:
+        except IOError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [installAllPHPToLitespeed]")
             return 0
 
         return 1
-
-
 
     @staticmethod
     def installMainWebServer():
@@ -326,10 +357,10 @@ class installUtilities:
                 print("###############################################")
 
 
-        except OSError, msg:
+        except OSError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [removeWebServer]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [removeWebServer]")
             return 0
 
@@ -354,22 +385,21 @@ class installUtilities:
                 print("###############################################")
                 sys.exit()
 
-        except OSError, msg:
+        except OSError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [removeWebServer]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [removeWebServer]")
             return 0
 
 
         try:
             shutil.rmtree(installUtilities.Server_root_path)
-        except BaseException,msg:
+        except BaseException as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [removeWebServer]")
             return 0
 
         return 1
-
 
     @staticmethod
     def startMariaDB():
@@ -397,15 +427,14 @@ class installUtilities:
                 print("###############################################")
 
 
-        except OSError, msg:
+        except OSError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [startMariaDB]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [startMariaDB]")
             return 0
 
         return 1
-
 
     @staticmethod
     def installMySQL(password):
@@ -434,13 +463,13 @@ class installUtilities:
                 print("###############################################")
 
 
-        except OSError, msg:
+        except OSError as msg:
 
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [installMySQL]")
 
             return 0
 
-        except ValueError, msg:
+        except ValueError as msg:
 
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " [installMySQL]")
 
@@ -473,10 +502,10 @@ class installUtilities:
                 print("          MariaDB Addded to startup            ")
                 print("###############################################")
 
-        except OSError, msg:
+        except OSError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " Could not add mariadb to startup [installMySQL]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " Could not add mariadb to startup [installMySQL]")
             return 0
 
@@ -533,18 +562,18 @@ class installUtilities:
             if (securemysql.before.find("Thanks for using MariaDB!") > -1 or securemysql.after.find("Thanks for using MariaDB!")>-1):
                 return 1
 
-        except pexpect.EOF,msg:
+        except pexpect.EOF as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + " Exception EOF [installMySQL]")
             print("###########################Before########################################")
-            print securemysql.before
+            print(securemysql.before)
             print("###########################After########################################")
-            print securemysql.after
+            print(securemysql.after)
             print("########################################################################")
-        except BaseException,msg:
+        except BaseException as msg:
             print("#############################Before#####################################")
-            print securemysql.before
+            print(securemysql.before)
             print("############################After######################################")
-            print securemysql.after
+            print(securemysql.after)
             print("########################################################################")
             logging.CyberCPLogFileWriter.writeToFile(str(msg) + "[installMySQL]")
 

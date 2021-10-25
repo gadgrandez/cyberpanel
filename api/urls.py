@@ -1,16 +1,22 @@
 from django.conf.urls import url
-import views
+from . import views
 
 urlpatterns = [
     url(r'^createWebsite', views.createWebsite, name='createWebsiteAPI'),
     url(r'^deleteWebsite', views.deleteWebsite, name='deleteWebsiteAPI'),
     url(r'^submitWebsiteStatus', views.submitWebsiteStatus, name='submitWebsiteStatusAPI'),
+    url(r'^deleteFirewallRule$', views.deleteFirewallRule, name='deleteFirewallRule'),
+    url(r'^addFirewallRule$', views.addFirewallRule, name='addFirewallRule'),
 
     url(r'^verifyConn', views.verifyConn, name='verifyConnAPI'),
 
     url(r'^loginAPI', views.loginAPI, name='loginAPI'),
 
+    url(r'^getUserInfo$', views.getUserInfo, name='getUserInfo'),
     url(r'^changeUserPassAPI', views.changeUserPassAPI, name='changeUserPassAPI'),
+    url(r'^submitUserDeletion$', views.submitUserDeletion, name='submitUserDeletion'),
+
+    url(r'^listPackage',views.getPackagesListAPI,name='getPackagesListAPI'),
     url(r'^changePackageAPI', views.changePackageAPI, name='changePackageAPI'),
     url(r'^fetchSSHkey', views.fetchSSHkey, name='fetchSSHkey'),
     url(r'^remoteTransfer', views.remoteTransfer, name='remoteTransfer'),
@@ -19,11 +25,8 @@ urlpatterns = [
 
     url(r'^cancelRemoteTransfer', views.cancelRemoteTransfer, name='cancelRemoteTransfer'),
 
-
     url(r'^cyberPanelVersion', views.cyberPanelVersion, name='cyberPanelVersion'),
-    url(r'^putSSHkey', views.putSSHkey, name='putSSHkey'),
-
-
-    url(r'^changeAdminPassword', views.changeAdminPassword, name='changeAdminPassword'),
+    url(r'^runAWSBackups$', views.runAWSBackups, name='runAWSBackups'),
+    url(r'^submitUserCreation$', views.submitUserCreation, name='submitUserCreation'),
 
 ]

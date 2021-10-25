@@ -28,9 +28,6 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
-
-
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -58,7 +55,18 @@ INSTALLED_APPS = [
     'manageSSL',
     'api',
     'filemanager',
-    'emailPremium'
+    'manageServices',
+    'pluginHolder',
+    'emailPremium',
+    'emailMarketing',
+    'cloudAPI',
+    'highAvailability',
+    's3Backups',
+    'dockerManager',
+    'containerization',
+    'CLManager',
+    'IncBackups',
+    'WebTerminal'
 ]
 
 MIDDLEWARE = [
@@ -66,7 +74,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
-
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -105,8 +113,8 @@ DATABASES = {
         'NAME': 'cyberpanel',
         'USER': 'cyberpanel',
         'PASSWORD': 'Bz9gF7Hr7X4RtD',
-        'HOST': '127.0.0.1',
-        'PORT':'3307'
+        'HOST': 'localhost',
+        'PORT': ''
     },
     'rootdb': {
         'ENGINE': 'django.db.backends.mysql',
@@ -119,7 +127,6 @@ DATABASES = {
 }
 
 DATABASE_ROUTERS = ['backup.backupRouter.backupRouter']
-
 
 # Password validation
 # https://docs.djangoproject.com/en/1.11/ref/settings/#auth-password-validators
@@ -153,7 +160,6 @@ USE_L10N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
 
@@ -176,4 +182,15 @@ LANGUAGES = (
     ('ru', _('Russian')),
     ('tr', _('Turkish')),
     ('es', _('Spanish')),
+    ('fr', _('French')),
+    ('pl', _('Polish')),
+    ('vi', _('Vietnamese')),
+    ('it', _('Italian')),
+    ('de', _('Deutsch')),
+    ('id', _('Indonesian')),
+    ('bn', _('Bangla')),
 )
+
+MEDIA_URL = '/usr/local/CyberCP/tmp/'
+MEDIA_ROOT = MEDIA_URL
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800

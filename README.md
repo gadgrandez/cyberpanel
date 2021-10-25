@@ -12,7 +12,7 @@ Webhosting control panel that uses OpenLiteSpeed as web server.
 * Email Support (Rainloop).
 * FileManager.
 * PHP Managment.
-* Firewall.
+* Firewall (FirewallD & ConfigServer Firewall Intregration).
 * One click Backup and Restore.
 
 # Supported PHPs
@@ -23,17 +23,23 @@ Webhosting control panel that uses OpenLiteSpeed as web server.
 * PHP 5.6
 * PHP 7.0
 * PHP 7.1
-
+* PHP 7.2
+* PHP 7.3
+* PHP 7.4
+* PHP 8.0
 
 # Installation Instructions
 
 
 ```
-wget http://cyberpanel.net/install.tar.gz
-tar zxf install.tar.gz
-cd install
-chmod +x install.py
-python install.py [IP Address]
+sh <(curl https://cyberpanel.net/install.sh || wget -O - https://cyberpanel.net/install.sh)
+```
+
+# Upgrading
+
+
+```
+sh <(curl https://raw.githubusercontent.com/usmannasir/cyberpanel/stable/preUpgrade.sh || wget -O - https://raw.githubusercontent.com/usmannasir/cyberpanel/stable/preUpgrade.sh)
 ```
 
 # Resources
@@ -41,5 +47,6 @@ python install.py [IP Address]
 * [Official Site.](https://cyberpanel.net)
 * [Documentation.](https://docs.cyberpanel.net)
 * [Forums.](https://forums.cyberpanel.net)
-
+* [Discord.](https://discord.gg/g8k8Db3)
+* [Facebook Group.](https://www.facebook.com/groups/cyberpanel)
 

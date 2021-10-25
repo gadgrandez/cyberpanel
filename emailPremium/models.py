@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+
 
 from django.db import models
 from mailServer.models import Domains, EUsers
 # Create your models here.
-
-
 
 class DomainLimits(models.Model):
     domain = models.ForeignKey(Domains, on_delete=models.CASCADE)

@@ -1,23 +1,31 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 
-from django.shortcuts import render,redirect
-from django.http import HttpResponse
-from models import Administrator
+
+from django.shortcuts import render
+from .models import Administrator
 from plogical import hashPassword
 import json
 from packages.models import Package
 from firewall.models import FirewallRules
 from baseTemplate.models import version
 from plogical.getSystemInformation import SystemInformation
-from django.utils.translation import LANGUAGE_SESSION_KEY
-import CyberCP.settings as settings
+from .models import ACL
+from plogical.acl import ACLManager
+from django.views.decorators.csrf import ensure_csrf_cookie
+from plogical.CyberCPLogFileWriter import CyberCPLogFileWriter as logging
+from django.conf import settings
+from django.http import HttpResponse
+from django.utils import translation
 # Create your views here.
+
+VERSION = '2.1'
+BUILD = 2
+
 
 def verifyLogin(request):
     try:
         userID = request.session['userID']
-        data = {'userID' : userID, 'loginStatus': 1, 'error_message':"None"}
+        data = {'userID': userID, 'loginStatus': 1, 'error_message': "None"}
         json_data = json.dumps(data)
         return HttpResponse(json_data)
     except KeyError:
@@ -28,118 +36,136 @@ def verifyLogin(request):
             if request.method == "POST":
                 data = json.loads(request.body)
 
-
                 username = data['username']
                 password = data['password']
 
                 try:
                     if data['languageSelection'] == "English":
                         user_Language = "en"
-                        request.session[LANGUAGE_SESSION_KEY] = user_Language
-                        request.COOKIES['django_language'] = user_Language
-                        settings.LANGUAGE_CODE = user_Language
                     elif data['languageSelection'] == "Chinese":
                         user_Language = "cn"
-                        request.session[LANGUAGE_SESSION_KEY] = user_Language
-                        request.COOKIES['django_language'] = user_Language
-                        settings.LANGUAGE_CODE = user_Language
                     elif data['languageSelection'] == "Bulgarian":
                         user_Language = "br"
-                        request.session[LANGUAGE_SESSION_KEY] = user_Language
-                        request.COOKIES['django_language'] = user_Language
-                        settings.LANGUAGE_CODE = user_Language
                     elif data['languageSelection'] == "Portuguese":
                         user_Language = "pt"
-                        request.session[LANGUAGE_SESSION_KEY] = user_Language
-                        request.COOKIES['django_language'] = user_Language
-                        settings.LANGUAGE_CODE = user_Language
                     elif data['languageSelection'] == "Japanese":
                         user_Language = "ja"
-                        request.session[LANGUAGE_SESSION_KEY] = user_Language
-                        request.COOKIES['django_language'] = user_Language
-                        settings.LANGUAGE_CODE = user_Language
                     elif data['languageSelection'] == "Bosnian":
                         user_Language = "bs"
-                        request.session[LANGUAGE_SESSION_KEY] = user_Language
-                        request.COOKIES['django_language'] = user_Language
-                        settings.LANGUAGE_CODE = user_Language
                     elif data['languageSelection'] == "Greek":
                         user_Language = "gr"
-                        request.session[LANGUAGE_SESSION_KEY] = user_Language
-                        request.COOKIES['django_language'] = user_Language
-                        settings.LANGUAGE_CODE = user_Language
                     elif data['languageSelection'] == "Russian":
                         user_Language = "ru"
-                        request.session[LANGUAGE_SESSION_KEY] = user_Language
-                        request.COOKIES['django_language'] = user_Language
-                        settings.LANGUAGE_CODE = user_Language
                     elif data['languageSelection'] == "Turkish":
                         user_Language = "tr"
-                        request.session[LANGUAGE_SESSION_KEY] = user_Language
-                        request.COOKIES['django_language'] = user_Language
-                        settings.LANGUAGE_CODE = user_Language
                     elif data['languageSelection'] == "Spanish":
                         user_Language = "es"
-                        request.session[LANGUAGE_SESSION_KEY] = user_Language
-                        request.COOKIES['django_language'] = user_Language
-                        settings.LANGUAGE_CODE = user_Language
-                except:
-                    request.session[LANGUAGE_SESSION_KEY] = "en"
-                    request.COOKIES['django_language'] = "en"
-                    settings.LANGUAGE_CODE = "en"
+                    elif data['languageSelection'] == "French":
+                        user_Language = "fr"
+                    elif data['languageSelection'] == "Polish":
+                        user_Language = "pl"
+                    elif data['languageSelection'] == "Vietnamese":
+                        user_Language = "vi"
+                    elif data['languageSelection'] == "Italian":
+                        user_Language = "it"
+                    elif data['languageSelection'] == "German":
+                        user_Language = "de"
+                    elif data['languageSelection'] == "Indonesian":
+                        user_Language = "id"
+                    elif data['languageSelection'] == "Bangla":
+                        user_Language = "bn"
 
+                    translation.activate(user_Language)
+                    response = HttpResponse()
+                    response.set_cookie(settings.LANGUAGE_COOKIE_NAME, user_Language)
+                except:
+                    user_Language = 'en'
+                    translation.activate(user_Language)
+                    response = HttpResponse()
+                    response.set_cookie(settings.LANGUAGE_COOKIE_NAME, user_Language)
 
             admin = Administrator.objects.get(userName=username)
 
-            if hashPassword.check_password(admin.password, password):
-
-                request.session['userID'] = admin.pk
-                data = {'userID': admin.pk, 'loginStatus': 1, 'error_message': "None"}
+            if admin.state == 'SUSPENDED':
+                data = {'userID': 0, 'loginStatus': 0, 'error_message': 'Account currently suspended.'}
                 json_data = json.dumps(data)
                 return HttpResponse(json_data)
+
+            if admin.twoFA:
+                try:
+                    twoinit = request.session['twofa']
+                except:
+                    request.session['twofa'] = 0
+                    data = {'userID': admin.pk, 'loginStatus': 2, 'error_message': "None"}
+                    json_data = json.dumps(data)
+                    response.write(json_data)
+                    return response
+
+            if hashPassword.check_password(admin.password, password):
+                if admin.twoFA:
+                    if request.session['twofa'] == 0:
+                        import pyotp
+                        totp = pyotp.TOTP(admin.secretKey)
+                        del request.session['twofa']
+                        if totp.now() != data['twofa']:
+                            request.session['twofa'] = 0
+                            data = {'userID': 0, 'loginStatus': 0, 'error_message': "Invalid verification code."}
+                            json_data = json.dumps(data)
+                            response.write(json_data)
+                            return response
+
+                request.session['userID'] = admin.pk
+
+                ipAddr = request.META.get('REMOTE_ADDR')
+
+                if ipAddr.find(':') > -1:
+                    ipAddr = ipAddr.split(':')[:3]
+                    request.session['ipAddr'] = ''.join(ipAddr)
+                else:
+                    request.session['ipAddr'] = request.META.get('REMOTE_ADDR')
+
+                request.session.set_expiry(43200)
+                data = {'userID': admin.pk, 'loginStatus': 1, 'error_message': "None"}
+                json_data = json.dumps(data)
+                response.write(json_data)
+                return response
 
             else:
                 data = {'userID': 0, 'loginStatus': 0, 'error_message': "wrong-password"}
                 json_data = json.dumps(data)
-                return HttpResponse(json_data)
+                response.write(json_data)
+                return response
 
-        except BaseException,msg:
+        except BaseException as msg:
             data = {'userID': 0, 'loginStatus': 0, 'error_message': str(msg)}
             json_data = json.dumps(data)
             return HttpResponse(json_data)
 
 
+@ensure_csrf_cookie
 def loadLoginPage(request):
     try:
         userID = request.session['userID']
-        admin = Administrator.objects.get(pk=userID)
+        currentACL = ACLManager.loadedACL(userID)
 
         cpuRamDisk = SystemInformation.cpuRamDisk()
 
-        finaData = {"type": admin.type, 'ramUsage': cpuRamDisk['ramUsage'], 'cpuUsage': cpuRamDisk['cpuUsage'],
+        if currentACL['admin'] == 1:
+            admin = 1
+        else:
+            admin = 0
+
+        finaData = {"admin": admin, 'ramUsage': cpuRamDisk['ramUsage'], 'cpuUsage': cpuRamDisk['cpuUsage'],
                     'diskUsage': cpuRamDisk['diskUsage']}
 
         return render(request, 'baseTemplate/homePage.html', finaData)
     except KeyError:
 
         numberOfAdministrator = Administrator.objects.count()
-
         password = hashPassword.hash_password('1234567')
+        noOfRules = FirewallRules.objects.count()
 
-        if numberOfAdministrator == 0:
-            email = 'usman@cyberpersons.com'
-            admin = Administrator(userName="admin", password=password, type=1,email=email,
-                                  firstName="Cyber",lastName="Panel")
-            admin.save()
-
-            vers = version(currentVersion="1.7",build=0)
-            vers.save()
-
-            package = Package(admin=admin, packageName="Default", diskSpace=1000,
-                                  bandwidth=1000, ftpAccounts=1000, dataBases=1000,
-                                  emailAccounts=1000,allowedDomains=20)
-            package.save()
-
+        if noOfRules == 0:
             newFWRule = FirewallRules(name="panel", proto="tcp", port="8090")
             newFWRule.save()
 
@@ -179,13 +205,38 @@ def loadLoginPage(request):
             newFWRule = FirewallRules(name="ftptls", proto="tcp", port="40110-40210")
             newFWRule.save()
 
+            newFWRule = FirewallRules(name="POP3S", proto="tcp", port="995")
+            newFWRule.save()
+
+            newFWRule = FirewallRules(name="quic", proto="udp", port="443")
+            newFWRule.save()
+
+        if numberOfAdministrator == 0:
+            ACLManager.createDefaultACLs()
+            acl = ACL.objects.get(name='admin')
+
+            token = hashPassword.generateToken('admin', '1234567')
+
+            email = 'usman@cyberpersons.com'
+            admin = Administrator(userName="admin", password=password, type=1, email=email,
+                                  firstName="Cyber", lastName="Panel", acl=acl, token=token)
+            admin.save()
+
+            vers = version(currentVersion=VERSION, build=BUILD)
+            vers.save()
+
+            package = Package(admin=admin, packageName="Default", diskSpace=1000, bandwidth=1000, ftpAccounts=1000,
+                              dataBases=1000, emailAccounts=1000, allowedDomains=20)
+            package.save()
             return render(request, 'loginSystem/login.html', {})
         else:
             return render(request, 'loginSystem/login.html', {})
 
+
+@ensure_csrf_cookie
 def logout(request):
     try:
         del request.session['userID']
         return render(request, 'loginSystem/login.html', {})
     except:
-        return render(request,'loginSystem/login.html',{})
+        return render(request, 'loginSystem/login.html', {})

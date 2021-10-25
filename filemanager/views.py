@@ -1,76 +1,56 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 from django.shortcuts import render,redirect
 from loginSystem.models import Administrator
 from loginSystem.views import loadLoginPage
 import plogical.CyberCPLogFileWriter as logging
-from django.http import HttpResponse,Http404
+from django.http import HttpResponse
 import json
 from websiteFunctions.models import Websites
-import subprocess
-import shlex
-import os
-from plogical.virtualHostUtilities import virtualHostUtilities
-
-
+from plogical.acl import ACLManager
+from .filemanager import FileManager as FM
+from plogical.processUtilities import ProcessUtilities
 # Create your views here.
-
 
 def loadFileManagerHome(request,domain):
     try:
-        val = request.session['userID']
-
-        admin = Administrator.objects.get(pk=val)
-
+        userID = request.session['userID']
         if Websites.objects.filter(domain=domain).exists():
-            if admin.type == 1:
-                viewStatus = 1
-                if admin.type == 3:
-                    viewStatus = 0
+            admin = Administrator.objects.get(pk=userID)
+            currentACL = ACLManager.loadedACL(userID)
 
-                return render(request, 'filemanager/index.html', {"viewStatus": viewStatus})
+            if ACLManager.checkOwnership(domain, admin, currentACL) == 1:
+                return render(request, 'filemanager/index.html', {'domainName': domain})
             else:
-                website = Websites.objects.get(domain=domain)
-                if website.admin == admin:
-                    viewStatus = 1
-
-                    if admin.type == 3:
-                        viewStatus = 0
-
-                    return render(request, 'filemanager/index.html', {"viewStatus": viewStatus})
-                else:
-                    return HttpResponse("Domain ownership error.")
+                return ACLManager.loadError()
         else:
             return HttpResponse("Domain does not exists.")
-
 
     except KeyError:
         return redirect(loadLoginPage)
 
-
 def changePermissions(request):
     try:
-        val = request.session['userID']
+        userID = request.session['userID']
+        admin = Administrator.objects.get(pk=userID)
         try:
             data = json.loads(request.body)
             domainName = data['domainName']
 
-            website = Websites.objects.get(domain=domainName)
-            externalApp = website.externalApp
+            currentACL = ACLManager.loadedACL(userID)
 
-            command = "sudo chown -R " + externalApp + ":" + externalApp +" /home/"+domainName
-            subprocess.call(shlex.split(command))
+            if currentACL['admin'] == 1:
+                pass
+            else:
+                return ACLManager.loadError()
 
-            command = "sudo chown -R nobody:nobody /home/" + domainName+"/logs"
-            subprocess.call(shlex.split(command))
+            fm = FM(request, data)
+            fm.fixPermissions(domainName)
 
             data_ret = {'permissionsChanged': 1, 'error_message': "None"}
             json_data = json.dumps(data_ret)
             return HttpResponse(json_data)
 
-
-        except BaseException, msg:
+        except BaseException as msg:
             logging.CyberCPLogFileWriter.writeToFile(str(msg))
             data_ret = {'permissionsChanged': 0, 'error_message': str(msg)}
             json_data = json.dumps(data_ret)
@@ -81,79 +61,145 @@ def changePermissions(request):
 
 def downloadFile(request):
     try:
+        userID = request.session['userID']
+        admin = Administrator.objects.get(pk=userID)
+        from urllib.parse import quote
+        from django.utils.encoding import iri_to_uri
 
-        data = json.loads(request.body)
-        fileToDownload = data['fileToDownload']
+        fileToDownload = request.build_absolute_uri().split('fileToDownload')[1][1:]
+        fileToDownload = iri_to_uri(fileToDownload)
 
-        response = ''
-        if os.path.isfile(fileToDownload):
-            try:
-                with open(fileToDownload, 'rb') as f:
-                    response = HttpResponse(f.read(), content_type="application/octet-stream")
-                    response['Content-Disposition'] = 'inline; filename=' + os.path.basename(fileToDownload)
-            except Exception as e:
-                raise Http404
+        domainName = request.GET.get('domainName')
+
+        currentACL = ACLManager.loadedACL(userID)
+
+        if ACLManager.checkOwnership(domainName, admin, currentACL) == 1:
+            pass
+        else:
+            return ACLManager.loadErrorJson('permissionsChanged', 0)
+
+        homePath = '/home/%s' % (domainName)
+
+        if fileToDownload.find('..') > -1 or fileToDownload.find(homePath) == -1:
+            return HttpResponse("Unauthorized access.")
+
+        response = HttpResponse(content_type='application/force-download')
+        response['Content-Disposition'] = 'attachment; filename=%s' % (fileToDownload.split('/')[-1])
+        response['X-LiteSpeed-Location'] = '%s' % (fileToDownload)
+
         return response
 
     except KeyError:
         return redirect(loadLoginPage)
 
-
-
-def createTemporaryFile(request):
+def controller(request):
     try:
-        val = request.session['userID']
-
         data = json.loads(request.body)
         domainName = data['domainName']
+        method = data['method']
 
-        admin = Administrator.objects.get(pk=val)
+        userID = request.session['userID']
+        admin = Administrator.objects.get(pk=userID)
+        currentACL = ACLManager.loadedACL(userID)
 
-        ## Create file manager entry
+        if ACLManager.checkOwnership(domainName, admin, currentACL) == 1:
+            pass
+        else:
+            return ACLManager.loadErrorJson()
 
-        if Websites.objects.filter(domain=domainName).exists():
-            if admin.type == 1:
+        fm = FM(request, data)
 
-                execPath = "sudo python " + virtualHostUtilities.cyberPanel + "/plogical/filemanager.py"
+        if method == 'listForTable':
+            return fm.listForTable()
+        elif method == 'list':
+            return fm.list()
+        elif method == 'createNewFile':
+            return fm.createNewFile()
+        elif method == 'createNewFolder':
+            return fm.createNewFolder()
+        elif method == 'deleteFolderOrFile':
+            return fm.deleteFolderOrFile()
+        elif method == 'restore':
+            return fm.restore()
+        elif method == 'copy':
+            return fm.copy()
+        elif method == 'move':
+            return fm.move()
+        elif method == 'rename':
+            return fm.rename()
+        elif method == 'readFileContents':
+            return fm.readFileContents()
+        elif method == 'writeFileContents':
+            return fm.writeFileContents()
+        elif method == 'upload':
+            return fm.writeFileContents()
+        elif method == 'extract':
+            return fm.extract()
+        elif method == 'compress':
+            return fm.compress()
+        elif method == 'changePermissions':
+            return fm.changePermissions()
 
-                execPath = execPath + " createTemporaryFile --domainName " + domainName
 
-                output = subprocess.check_output(shlex.split(execPath))
+    except BaseException as msg:
+        fm = FM(request, None)
+        return fm.ajaxPre(0, str(msg))
 
-                if output.find("0,") > -1:
-                    data_ret = {'createTemporaryFile': 0, 'error_message': "None"}
-                    json_data = json.dumps(data_ret)
-                    return HttpResponse(json_data)
+def upload(request):
+    try:
 
-                else:
-                    domainRandomSeed = output.rstrip('\n')
-                    data_ret = {'createTemporaryFile': 1, 'error_message': "None", 'domainRandomSeed':domainRandomSeed}
-                    json_data = json.dumps(data_ret)
-                    return HttpResponse(json_data)
+        data = request.POST
 
-            else:
-                website = Websites.objects.get(domain=domainName)
-                if website.admin == admin:
-                    execPath = "sudo python " + virtualHostUtilities.cyberPanel + "/plogical/filemanager.py"
+        userID = request.session['userID']
+        admin = Administrator.objects.get(pk=userID)
+        currentACL = ACLManager.loadedACL(userID)
 
-                    execPath = execPath + " createTemporaryFile --domainName " + domainName
+        if ACLManager.checkOwnership(data['domainName'], admin, currentACL) == 1:
+            pass
+        else:
+            return ACLManager.loadErrorJson()
 
-                    output = subprocess.check_output(shlex.split(execPath))
+        fm = FM(request, data)
+        return fm.upload()
 
-                    if output.find("0,") > -1:
-                        data_ret = {'createTemporaryFile': 0, 'error_message': "None"}
-                        json_data = json.dumps(data_ret)
-                        return HttpResponse(json_data)
+    except KeyError:
+        return redirect(loadLoginPage)
 
-                    else:
-                        domainRandomSeed = output.rstrip('\n')
-                        data_ret = {'createTemporaryFile': 1, 'error_message': "None", 'domainRandomSeed': domainRandomSeed}
-                        json_data = json.dumps(data_ret)
-                        return HttpResponse(json_data)
-                else:
-                    data_ret = {'createTemporaryFile': 0, 'error_message': "Domain ownership error."}
-                    json_data = json.dumps(data_ret)
-                    return HttpResponse(json_data)
+def editFile(request):
+    try:
+        userID = request.session['userID']
+        admin = Administrator.objects.get(pk=userID)
+        from urllib.parse import quote
+        from django.utils.encoding import iri_to_uri
+
+        domainName = request.GET.get('domainName')
+        fileName = request.GET.get('fileName')
+
+        try:
+            theme = request.GET.get('theme')
+            if theme == None:
+                theme = 'cobalt'
+        except:
+            theme = 'cobalt'
+
+        currentACL = ACLManager.loadedACL(userID)
+
+        if ACLManager.checkOwnership(domainName, admin, currentACL) == 1:
+            pass
+        else:
+            return ACLManager.loadError()
+
+        mode = FM.findMode(fileName)
+        modeFiles = FM.findModeFiles(mode)
+        additionalOptions = FM.findAdditionalOptions(mode)
+        themeFile = FM.findThemeFile(theme)
+
+        if ACLManager.checkOwnership(domainName, admin, currentACL) == 1:
+            return render(request, 'filemanager/editFile.html', {'domainName': domainName, 'fileName': fileName,
+                                                                 'mode': mode, 'modeFiles': modeFiles, 'theme': theme,
+                                                                 'themeFile': themeFile, 'additionalOptions': additionalOptions})
+        else:
+            return ACLManager.loadError()
 
     except KeyError:
         return redirect(loadLoginPage)

@@ -8,7 +8,6 @@ import shlex
 import socket
 
 
-
 class unInstallCyberPanel:
 
     def unInstallCyberPanelRepo(self):
@@ -17,8 +16,8 @@ class unInstallCyberPanel:
             copyPath = "/etc/yum.repos.d/cyberpanel.repo"
             os.remove(copyPath)
 
-        except OSError,msg:
-            logging.InstallLog.writeToFile(str(msg)+ " [unInstallCyberPanelRepo]")
+        except OSError as msg:
+            logging.InstallLog.writeToFile(f"{str(msg)} [unInstallCyberPanelRepo]")
 
     def removeGunicorn(self):
         try:
@@ -33,8 +32,7 @@ class unInstallCyberPanel:
             os.remove(socket)
             os.remove(conf)
 
-
-        except BaseException, msg:
+        except BaseException as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removeGunicorn]")
 
     def removePostfixDovecot(self):
@@ -50,10 +48,10 @@ class unInstallCyberPanel:
             shutil.rmtree("etc/dovecot")
 
 
-        except OSError, msg:
+        except OSError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removePostfixDovecot]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removePostfixDovecot]")
             return 0
 
@@ -71,11 +69,10 @@ class unInstallCyberPanel:
             shutil.rmtree("/var/lib/mysql")
             os.remove("/etc/my.cnf")
 
-
-        except OSError, msg:
+        except OSError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removeMysql]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removeMysql]")
             return 0
 
@@ -84,18 +81,18 @@ class unInstallCyberPanel:
     def removeLiteSpeed(self):
         try:
 
-           command = 'yum -y remove openlitespeed'
+            command = 'yum -y remove openlitespeed'
 
-           cmd = shlex.split(command)
+            cmd = shlex.split(command)
 
-           res = subprocess.call(cmd)
+            res = subprocess.call(cmd)
 
-           shutil.rmtree("/usr/local/lsws")
+            shutil.rmtree("/usr/local/lsws")
 
-        except OSError, msg:
+        except OSError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removeLiteSpeed]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removeLiteSpeed]")
             return 0
         return 1
@@ -107,10 +104,10 @@ class unInstallCyberPanel:
            os.remove("/usr/local/CyberCP2.tar.gz")
            shutil.rmtree("/etc/cyberpanel")
 
-        except OSError, msg:
+        except OSError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removeCyberPanel]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removeCyberPanel]")
             return 0
         return 1
@@ -126,10 +123,10 @@ class unInstallCyberPanel:
 
            shutil.rmtree("/etc/pure-ftpd")
 
-        except OSError, msg:
+        except OSError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removePureFTPD]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removePureFTPD]")
             return 0
         return 1
@@ -145,10 +142,10 @@ class unInstallCyberPanel:
 
            shutil.rmtree("/etc/pdns")
 
-        except OSError, msg:
+        except OSError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removePowerDNS]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removePowerDNS]")
             return 0
         return 1
@@ -164,10 +161,10 @@ class unInstallCyberPanel:
 
            shutil.rmtree("/etc/pdns")
 
-        except OSError, msg:
+        except OSError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removePHP]")
             return 0
-        except ValueError, msg:
+        except ValueError as msg:
             logging.InstallLog.writeToFile(str(msg) + " [removePHP]")
             return 0
         return 1

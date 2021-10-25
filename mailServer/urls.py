@@ -1,10 +1,12 @@
 from django.conf.urls import url
-import views
+from . import views
 
 urlpatterns = [
     url(r'^$', views.loadEmailHome, name='loadEmailHome'),
     url(r'^createEmailAccount', views.createEmailAccount, name='createEmailAccount'),
+    url(r'^listEmails$', views.listEmails, name='listEmails'),
     url(r'^submitEmailCreation', views.submitEmailCreation, name='submitEmailCreation'),
+    url(r'^fetchEmails$', views.fetchEmails, name='fetchEmails'),
 
 
     ## Mail Forwardings
@@ -18,6 +20,7 @@ urlpatterns = [
     url(r'^deleteEmailAccount', views.deleteEmailAccount, name='deleteEmailAccount'),
     url(r'^getEmailsForDomain$', views.getEmailsForDomain, name='getEmailsForDomain'),
     url(r'^submitEmailDeletion', views.submitEmailDeletion, name='submitEmailDeletion'),
+    url(r'^fixMailSSL', views.fixMailSSL, name='fixMailSSL'),
 
 
     ## Change email password
