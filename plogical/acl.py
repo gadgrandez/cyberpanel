@@ -1,5 +1,7 @@
 #!/usr/local/CyberCP/bin/python
 import os,sys
+
+from dns.models import Domains
 sys.path.append('/usr/local/CyberCP')
 import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "CyberCP.settings")
@@ -7,6 +9,7 @@ django.setup()
 from loginSystem.models import Administrator, ACL
 from django.shortcuts import HttpResponse
 from packages.models import Package
+from dns.models import Domains
 from websiteFunctions.models import Websites, ChildDomains, aliasDomains
 import json
 from subprocess import call, CalledProcessError
@@ -589,9 +592,9 @@ class ACLManager:
         domainsList = []
 
         if currentACL['admin'] == 1:
-            domains = Websites.objects.all().order_by('domain')
+            domains = Domains.objects.all().order_by("name")
             for items in domains:
-                domainsList.append(items.domain)
+                domainsList.append(items.name)
         else:
             admin = Administrator.objects.get(pk=userID)
             domains = admin.websites_set.all().order_by('domain')
@@ -675,8 +678,8 @@ class ACLManager:
 
 
     @staticmethod
-    def checkOwnershipZone(domain, admin, currentACL):
-        domain = Websites.objects.get(domain=domain)
+    def checkOwnershipZone(zone, admin, currentACL):
+        domain = Domains.objects.get(name=zone)
 
         if currentACL['admin'] == 1:
             return 1
